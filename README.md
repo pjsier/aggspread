@@ -4,4 +4,4 @@ A CLI tool based on Conveyal's [`aggregate-disser`](https://github.com/conveyal/
 
 ## Running
 
-`aggspread -agg <AGGREGATED_GEOJSON> -spread <SPREAD_GEOJSON> -prop <AGGREGATE_PROP> -output <OUTPUT_CSV_FILE>
+`aggspread -agg <AGGREGATED_GEOJSON> -spread <SPREAD_GEOJSON> -prop <AGGREGATE_PROP> -output <OUTPUT_CSV_FILE>`
