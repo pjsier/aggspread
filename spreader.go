@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"math/rand"
+	"sort"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
@@ -19,9 +20,22 @@ type Spreader struct {
 func (s *Spreader) spreadAggregateValue() []orb.Point {
 	var spreadPoints []orb.Point
 	spreadTotal := s.totalSpreadValue()
+	lenSpreadFeatures := len(s.SpreadFeatures)
+	totalNumPoints := int(math.Floor(s.AggregateValue))
+	// Sort features in descending order by area
+	sort.Slice(s.SpreadFeatures, func(i, j int) bool {
+		return planar.Area(s.SpreadFeatures[i].Geometry) > planar.Area(s.SpreadFeatures[j].Geometry)
+	})
+
+	if lenSpreadFeatures == 0 {
+		return spreadPoints
+	}
 
 	for _, spreadFeat := range s.SpreadFeatures {
-		// TODO: Total points still coming slightly under aggregate value
+		// Break out of the loop if already at the total number of points
+		if len(spreadPoints) >= totalNumPoints {
+			break
+		}
 		var numPoints int64
 		value := planar.Area(spreadFeat.Geometry)
 		portion := value / spreadTotal
@@ -38,9 +52,21 @@ func (s *Spreader) spreadAggregateValue() []orb.Point {
 
 		var i int64
 		for ; i < numPoints; i++ {
+			if len(spreadPoints) >= totalNumPoints {
+				break
+			}
 			spreadPoints = append(spreadPoints, getRandomPointInGeom(spreadFeat.Geometry))
 		}
 	}
+
+	// Randomly distribute remaining points throughout spread features, starting with largest
+	// TODO: Come up with a better method that doesn't sacrifice speed
+	pointsToAdd := math.Floor(s.AggregateValue - float64(len(spreadPoints)))
+	for i := 0; float64(i) < pointsToAdd; i++ {
+		index := int(math.Floor(rand.Float64() * float64(lenSpreadFeatures)))
+		spreadPoints = append(spreadPoints, getRandomPointInGeom(s.SpreadFeatures[index].Geometry))
+	}
+
 	return spreadPoints
 }
 

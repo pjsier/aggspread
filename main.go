@@ -90,7 +90,6 @@ func loadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 // that can distribute the aggregated values throughout the spread features
 func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.FeatureCollection, prop string) []Spreader {
 	var spreaders []Spreader
-	var sumAgg float64
 
 	spreadFeatureBound := featureCollectionBound(spreadFc)
 	qt := quadtree.New(spreadFeatureBound)
@@ -99,7 +98,6 @@ func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.Fea
 	}
 
 	for _, feat := range aggFc.Features {
-		sumAgg += feat.Properties[prop].(float64)
 		var spreadFeatures []*geojson.Feature
 		for _, spreadPtr := range qt.InBound(nil, feat.Geometry.Bound()) {
 			spreadFeat := spreadPtr.(CentroidPoint).Feature
