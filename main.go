@@ -12,10 +12,11 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/planar"
+	"github.com/paulmach/orb/quadtree"
 )
 
 func main() {
-	aggPtr := flag.String("agg", "", "File including aggregated info")
+	aggPtr := flag.String("agg", "", "File including aggregated info or '-' to read from stdin")
 	propPtr := flag.String("prop", "", "Aggregated property")
 	spreadPtr := flag.String("spread", "", "File to spread property throughout")
 	outputPtr := flag.String("output", "", "CSV filename to write to or '-' to write to stdout")
@@ -62,12 +63,19 @@ func main() {
 }
 
 func loadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
+	var data []byte
+	var err error
 	var features = &geojson.FeatureCollection{}
 	if filename == "" {
 		return features, errors.New("Filename must not be blank")
 	}
 
-	data, err := ioutil.ReadFile(filename)
+	if filename == "-" {
+		data, err = ioutil.ReadAll(os.Stdin)
+	} else {
+		data, err = ioutil.ReadFile(filename)
+	}
+
 	if err != nil {
 		return features, err
 	}
@@ -82,10 +90,19 @@ func loadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 // that can distribute the aggregated values throughout the spread features
 func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.FeatureCollection, prop string) []Spreader {
 	var spreaders []Spreader
+	var sumAgg float64
+
+	spreadFeatureBound := featureCollectionBound(spreadFc)
+	qt := quadtree.New(spreadFeatureBound)
+	for _, feat := range spreadFc.Features {
+		qt.Add(CentroidPoint{feat})
+	}
 
 	for _, feat := range aggFc.Features {
+		sumAgg += feat.Properties[prop].(float64)
 		var spreadFeatures []*geojson.Feature
-		for _, spreadFeat := range spreadFc.Features {
+		for _, spreadPtr := range qt.InBound(nil, feat.Geometry.Bound()) {
+			spreadFeat := spreadPtr.(CentroidPoint).Feature
 			if geometriesIntersect(feat.Geometry, spreadFeat.Geometry) {
 				spreadFeatures = append(spreadFeatures, spreadFeat)
 			}
@@ -95,15 +112,16 @@ func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.Fea
 	return spreaders
 }
 
-func geometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
-	geomBound := geom.Bound()
-	intersectBound := intersectGeom.Bound()
-
-	// Check if bounding box overlaps first
-	if !geomBound.Contains(intersectBound.Min) && !geomBound.Contains(intersectBound.Max) {
-		return false
+func featureCollectionBound(fc *geojson.FeatureCollection) orb.Bound {
+	var bound orb.Bound
+	bound = fc.Features[0].Geometry.Bound()
+	for _, feat := range fc.Features[1:] {
+		bound = bound.Union(feat.Geometry.Bound())
 	}
+	return bound
+}
 
+func geometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
 	switch g := geom.(type) {
 	case orb.Polygon:
 		intersects := polygonOverlaps(g, intersectGeom)

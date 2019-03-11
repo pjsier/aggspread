@@ -21,12 +21,23 @@ func (s *Spreader) spreadAggregateValue() []orb.Point {
 	spreadTotal := s.totalSpreadValue()
 
 	for _, spreadFeat := range s.SpreadFeatures {
-		spreadFeatValue := planar.Area(spreadFeat.Geometry)
-		spreadFeatPortion := spreadFeatValue / spreadTotal
-		numSpreadPoints := int64(math.Floor(spreadFeatPortion * s.AggregateValue))
+		// TODO: Total points still coming slightly under aggregate value
+		var numPoints int64
+		value := planar.Area(spreadFeat.Geometry)
+		portion := value / spreadTotal
+		magnitude := portion * s.AggregateValue
+		remainder := magnitude - math.Floor(magnitude)
+
+		// Round magnitude to an integer semi-randomly so that if 5 spread features have
+		// a magnitude of 0.2, one will have 1 point and the others will have 0
+		if remainder < rand.Float64() {
+			numPoints = int64(math.Floor(magnitude))
+		} else {
+			numPoints = int64(math.Ceil(magnitude))
+		}
 
 		var i int64
-		for ; i < numSpreadPoints; i++ {
+		for ; i < numPoints; i++ {
 			spreadPoints = append(spreadPoints, getRandomPointInGeom(spreadFeat.Geometry))
 		}
 	}
