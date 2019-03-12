@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
@@ -90,6 +91,8 @@ func loadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 // that can distribute the aggregated values throughout the spread features
 func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.FeatureCollection, prop string) []Spreader {
 	var spreaders []Spreader
+	spreaderChan := make(chan Spreader, len(aggFc.Features))
+	wg := sync.WaitGroup{}
 
 	spreadFeatureBound := featureCollectionBound(spreadFc)
 	qt := quadtree.New(spreadFeatureBound)
@@ -98,14 +101,16 @@ func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.Fea
 	}
 
 	for _, feat := range aggFc.Features {
-		var spreadFeatures []*geojson.Feature
-		for _, spreadPtr := range qt.InBound(nil, feat.Geometry.Bound()) {
-			spreadFeat := spreadPtr.(CentroidPoint).Feature
-			if geometriesIntersect(feat.Geometry, spreadFeat.Geometry) {
-				spreadFeatures = append(spreadFeatures, spreadFeat)
-			}
-		}
-		spreaders = append(spreaders, Spreader{feat, feat.Properties[prop].(float64), spreadFeatures})
+		wg.Add(1)
+		go func(qt *quadtree.Quadtree, feat *geojson.Feature, sc chan<- Spreader) {
+			sc <- Spreader{feat, feat.Properties[prop].(float64), getOverlappingFeatures(qt, feat)}
+			wg.Done()
+		}(qt, feat, spreaderChan)
+	}
+	wg.Wait()
+	close(spreaderChan)
+	for sf := range spreaderChan {
+		spreaders = append(spreaders, sf)
 	}
 	return spreaders
 }
@@ -117,6 +122,17 @@ func featureCollectionBound(fc *geojson.FeatureCollection) orb.Bound {
 		bound = bound.Union(feat.Geometry.Bound())
 	}
 	return bound
+}
+
+func getOverlappingFeatures(qt *quadtree.Quadtree, feat *geojson.Feature) []*geojson.Feature {
+	var overlap []*geojson.Feature
+	for _, featPtr := range qt.InBound(nil, feat.Geometry.Bound()) {
+		overlapFeat := featPtr.(CentroidPoint).Feature
+		if geometriesIntersect(feat.Geometry, overlapFeat.Geometry) {
+			overlap = append(overlap, overlapFeat)
+		}
+	}
+	return overlap
 }
 
 func geometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
