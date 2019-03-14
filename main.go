@@ -136,61 +136,24 @@ func getOverlappingFeatures(qt *quadtree.Quadtree, feat *geojson.Feature) []*geo
 }
 
 func geometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
-	switch g := geom.(type) {
-	case orb.Polygon:
-		intersects := polygonOverlaps(g, intersectGeom)
-		if intersects {
-			return intersects
-		}
-	case orb.MultiPolygon:
-		intersects := multiPolygonOverlaps(g, intersectGeom)
-		if intersects {
-			return intersects
-		}
-	}
+	var polyRange []orb.Polygon
 
-	return false
-}
-
-func polygonOverlaps(geom orb.Polygon, intersectGeom orb.Geometry) bool {
 	switch g := intersectGeom.(type) {
 	case orb.Polygon:
-		for _, ring := range g {
-			for _, point := range ring {
-				if planar.PolygonContains(geom, point) {
-					return true
-				}
-			}
-		}
+		polyRange = []orb.Polygon{g}
 	case orb.MultiPolygon:
-		for _, polygon := range g {
-			for _, ring := range polygon {
-				for _, point := range ring {
-					if planar.PolygonContains(geom, point) {
+		polyRange = g
+	}
+	for _, polygon := range polyRange {
+		for _, ring := range polygon {
+			for _, point := range ring {
+				switch gt := geom.(type) {
+				case orb.Polygon:
+					if planar.PolygonContains(gt, point) {
 						return true
 					}
-				}
-			}
-		}
-	}
-	return false
-}
-
-func multiPolygonOverlaps(geom orb.MultiPolygon, intersectGeom orb.Geometry) bool {
-	switch g := intersectGeom.(type) {
-	case orb.Polygon:
-		for _, ring := range g {
-			for _, point := range ring {
-				if planar.MultiPolygonContains(geom, point) {
-					return true
-				}
-			}
-		}
-	case orb.MultiPolygon:
-		for _, polygon := range g {
-			for _, ring := range polygon {
-				for _, point := range ring {
-					if planar.MultiPolygonContains(geom, point) {
+				case orb.MultiPolygon:
+					if planar.MultiPolygonContains(gt, point) {
 						return true
 					}
 				}
