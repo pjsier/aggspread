@@ -103,7 +103,7 @@ func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.Fea
 	for _, feat := range aggFc.Features {
 		wg.Add(1)
 		go func(qt *quadtree.Quadtree, feat *geojson.Feature, sc chan<- Spreader) {
-			sc <- Spreader{feat, feat.Properties[prop].(float64), getOverlappingFeatures(qt, feat)}
+			sc <- Spreader{feat, feat.Properties[prop].(float64), getIntersectingFeatures(qt, feat)}
 			wg.Done()
 		}(qt, feat, spreaderChan)
 	}
@@ -124,11 +124,11 @@ func featureCollectionBound(fc *geojson.FeatureCollection) orb.Bound {
 	return bound
 }
 
-func getOverlappingFeatures(qt *quadtree.Quadtree, feat *geojson.Feature) []*geojson.Feature {
+func getIntersectingFeatures(qt *quadtree.Quadtree, feat *geojson.Feature) []*geojson.Feature {
 	var overlap []*geojson.Feature
 	for _, featPtr := range qt.InBound(nil, feat.Geometry.Bound()) {
 		overlapFeat := featPtr.(CentroidPoint).Feature
-		if geometriesIntersect(feat.Geometry, overlapFeat.Geometry) {
+		if geometriesIntersect(feat.Geometry, overlapFeat.Geometry) || geometriesIntersect(overlapFeat.Geometry, feat.Geometry) {
 			overlap = append(overlap, overlapFeat)
 		}
 	}
