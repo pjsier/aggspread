@@ -52,7 +52,7 @@ func main() {
 	err = csvWriter.Write([]string{"lon", "lat"})
 
 	for _, spreader := range spreaders {
-		for _, point := range spreader.spreadAggregateValue() {
+		for _, point := range spreader.Spread() {
 			lon := fmt.Sprintf("%.6f", point[0])
 			lat := fmt.Sprintf("%.6f", point[1])
 			csvWriter.Write([]string{lon, lat})

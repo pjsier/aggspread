@@ -17,9 +17,9 @@ type Spreader struct {
 }
 
 // Return a slice of points distributed throughout spread features
-func (s *Spreader) spreadAggregateValue() []orb.Point {
+func (s *Spreader) Spread() []orb.Point {
 	var spreadPoints []orb.Point
-	spreadTotal := s.totalSpreadValue()
+	spreadTotal := s.TotalSpreadValue()
 	lenSpreadFeatures := len(s.SpreadFeatures)
 	totalNumPoints := int(math.Floor(s.AggregateValue))
 	// Sort features in descending order by area
@@ -72,7 +72,7 @@ func (s *Spreader) spreadAggregateValue() []orb.Point {
 
 // Get the sum of all feature areas to know what to distribute
 // TODO: Allow spreading by prop
-func (s *Spreader) totalSpreadValue() float64 {
+func (s *Spreader) TotalSpreadValue() float64 {
 	var spreadValue float64
 	for _, feat := range s.SpreadFeatures {
 		spreadValue += planar.Area(feat.Geometry)
