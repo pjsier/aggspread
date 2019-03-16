@@ -96,7 +96,7 @@ func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.Fea
 	}
 
 	featureChan := make(chan *geojson.Feature)
-	spreaderChan := make(chan Spreader, len(aggFc.Features))
+	spreaderChan := make(chan Spreader)
 
 	// Start up worker goroutines to process the data. 8 can be any number you want. You could
 	// use the value of runtime.GOMAXPROCS, but I would experiment to see what gives the best performance.
