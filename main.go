@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
@@ -56,7 +55,6 @@ func main() {
 		}
 	}
 
-	var mu sync.Mutex
 	csvWriter := csv.NewWriter(writer)
 	defer csvWriter.Flush()
 
@@ -65,13 +63,11 @@ func main() {
 	// Iterate through the number of spreaders (from numFeatures) and write each to a CSV
 	for i := 0; i < numFeatures; i++ {
 		spreader := <-spreaderChan
-		mu.Lock()
 		for _, point := range spreader.Spread() {
 			lon := fmt.Sprintf("%.6f", point[0])
 			lat := fmt.Sprintf("%.6f", point[1])
 			csvWriter.Write([]string{lon, lat})
 		}
-		mu.Unlock()
 	}
 
 	if err != nil {
