@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
@@ -90,29 +89,51 @@ func loadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 // Takes a feature collection of aggregate features, returns a slice of Spreader objects
 // that can distribute the aggregated values throughout the spread features
 func aggFeaturesToSpread(aggFc *geojson.FeatureCollection, spreadFc *geojson.FeatureCollection, prop string) []Spreader {
-	var spreaders []Spreader
-	spreaderChan := make(chan Spreader, len(aggFc.Features))
-	wg := sync.WaitGroup{}
-
 	spreadFeatureBound := featureCollectionBound(spreadFc)
 	qt := quadtree.New(spreadFeatureBound)
 	for _, feat := range spreadFc.Features {
 		qt.Add(CentroidPoint{feat})
 	}
 
+	featureChan := make(chan *geojson.Feature)
+	spreaderChan := make(chan Spreader, len(aggFc.Features))
+
+	// Start up worker goroutines to process the data. 8 can be any number you want. You could
+	// use the value of runtime.GOMAXPROCS, but I would experiment to see what gives the best performance.
+	// You can use lots and lots of goroutines, but if you're CPU bound that won't make things faster and
+	// will add some overhead.
+	for i := 0; i < 8; i++ {
+		makeSpreaders(featureChan, spreaderChan, qt, prop)
+	}
+
+	// Keep track of how many features we've seen so that we know how many Spreaders to expect later on
+	// You could just get this number using len(aggFc.Features), but this design will get you closer to
+	// streaming data through the program instead of loading it all into memory at once.
+	numFeatures := 0
 	for _, feat := range aggFc.Features {
-		wg.Add(1)
-		go func(qt *quadtree.Quadtree, feat *geojson.Feature, sc chan<- Spreader) {
-			sc <- Spreader{feat, feat.Properties[prop].(float64), getIntersectingFeatures(qt, feat)}
-			wg.Done()
-		}(qt, feat, spreaderChan)
+		featureChan <- feat
+		numFeatures++
 	}
-	wg.Wait()
-	close(spreaderChan)
-	for sf := range spreaderChan {
-		spreaders = append(spreaders, sf)
+
+	// Closing this channel will stop the range loops within the makeSpreaders goroutines
+	close(featureChan)
+
+	var spreaders []Spreader
+	for i := 0; i < numFeatures; i++ {
+		spreaders = append(spreaders, <-spreaderChan)
 	}
+
 	return spreaders
+}
+
+// Starts a goroutine that pulls features off featureChan and pushes a resulting Spreader back onto
+// spreaderChan
+func makeSpreaders(featureChan <-chan *geojson.Feature, spreaderChan chan<- Spreader, qt *quadtree.Quadtree, prop string) {
+	go func() {
+		for feat := range featureChan {
+			spreaderChan <- Spreader{feat, feat.Properties[prop].(float64), getIntersectingFeatures(qt, feat)}
+		}
+	}()
 }
 
 func featureCollectionBound(fc *geojson.FeatureCollection) orb.Bound {
