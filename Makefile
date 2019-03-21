@@ -6,10 +6,10 @@ ARCH_LIST = darwin linux windows
 .PHONY: test release
 
 test:
-	go test *.go
+	go test ./pkg/...
 
 release: $(patsubst %, release/aggspread-%-amd64, $(ARCH_LIST))
 
 release/aggspread-%-amd64:
 	mkdir -p release
-	GOOS=$* GOARCH=amd64 go build $(LDFLAGS) -o $@ *.go
+	GOOS=$* GOARCH=amd64 go build $(LDFLAGS) -o $@ main.go

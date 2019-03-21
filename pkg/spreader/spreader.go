@@ -1,4 +1,4 @@
-package main
+package spreader
 
 import (
 	"math"
@@ -8,6 +8,8 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/planar"
+	"github.com/paulmach/orb/quadtree"
+	"github.com/pjsier/aggspread/pkg/geom"
 )
 
 type Spreader struct {
@@ -15,6 +17,8 @@ type Spreader struct {
 	AggregateValue float64
 	SpreadFeatures []*geojson.Feature
 }
+
+const WORKER_COUNT = 8
 
 // Return a slice of points distributed throughout spread features
 func (s *Spreader) Spread() []orb.Point {
@@ -55,7 +59,7 @@ func (s *Spreader) Spread() []orb.Point {
 			if len(spreadPoints) >= totalNumPoints {
 				break
 			}
-			spreadPoints = append(spreadPoints, getRandomPointInGeom(spreadFeat.Geometry))
+			spreadPoints = append(spreadPoints, geom.RandomPointInGeom(spreadFeat.Geometry))
 		}
 	}
 
@@ -64,7 +68,7 @@ func (s *Spreader) Spread() []orb.Point {
 	pointsToAdd := math.Floor(s.AggregateValue - float64(len(spreadPoints)))
 	for i := 0; float64(i) < pointsToAdd; i++ {
 		index := int(math.Floor(rand.Float64() * float64(lenSpreadFeatures)))
-		spreadPoints = append(spreadPoints, getRandomPointInGeom(s.SpreadFeatures[index].Geometry))
+		spreadPoints = append(spreadPoints, geom.RandomPointInGeom(s.SpreadFeatures[index].Geometry))
 	}
 
 	return spreadPoints
@@ -80,23 +84,40 @@ func (s *Spreader) TotalSpreadValue() float64 {
 	return spreadValue
 }
 
-func getRandomPointInGeom(geom orb.Geometry) orb.Point {
-	for i := 0; i < 1000; i++ {
-		bounds := geom.Bound()
-		lon := bounds.Min[0] + rand.Float64()*(bounds.Max[0]-bounds.Min[0])
-		lat := bounds.Min[1] + rand.Float64()*(bounds.Max[1]-bounds.Min[1])
-		point := orb.Point{lon, lat}
+// Takes a feature collection of aggregate features, returns a slice of Spreader objects
+// that can distribute the aggregated values throughout the spread features
+func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) (int, <-chan Spreader) {
+	featureChan := make(chan *geojson.Feature)
+	spreaderChan := make(chan Spreader)
 
-		switch g := geom.(type) {
-		case orb.Polygon:
-			if planar.PolygonContains(g, point) {
-				return point
-			}
-		case orb.MultiPolygon:
-			if planar.MultiPolygonContains(g, point) {
-				return point
-			}
-		}
+	// Start up worker goroutines to process the data. 8 can be any number you want. You could
+	// use the value of runtime.GOMAXPROCS, but I would experiment to see what gives the best performance.
+	// You can use lots and lots of goroutines, but if you're CPU bound that won't make things faster and
+	// will add some overhead.
+	for i := 0; i < WORKER_COUNT; i++ {
+		updateSpreaderChan(featureChan, spreaderChan, qt, prop)
 	}
-	return orb.Point{}
+
+	// Keep track of how many features we've seen so that we know how many Spreaders to expect later on
+	// You could just get this number using len(fc.Features), but this design will get you closer to
+	// streaming data through the program instead of loading it all into memory at once.
+	numFeatures := 0
+	for _, feat := range fc.Features {
+		go func(feat *geojson.Feature) {
+			featureChan <- feat
+		}(feat)
+		numFeatures++
+	}
+
+	return numFeatures, spreaderChan
+}
+
+// Starts a goroutine that pulls features off featureChan and pushes a resulting Spreader back onto
+// spreaderChan
+func updateSpreaderChan(featureChan <-chan *geojson.Feature, spreaderChan chan<- Spreader, qt *quadtree.Quadtree, prop string) {
+	go func() {
+		for feat := range featureChan {
+			spreaderChan <- Spreader{feat, feat.Properties[prop].(float64), geom.IntersectingFeatures(qt, feat)}
+		}
+	}()
 }
