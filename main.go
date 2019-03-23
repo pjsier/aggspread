@@ -37,9 +37,6 @@ func main() {
 		qt.Add(geom.CentroidPoint{feat})
 	}
 
-	// Get the total number of aggregated features to spread and a channel of Spreaders
-	numFeatures, spreaderChan := spreader.MakeSpreaders(aggFc, qt, *propPtr)
-
 	var writer io.Writer
 	if *outputPtr == "-" {
 		writer = os.Stdout
@@ -54,18 +51,19 @@ func main() {
 	defer csvWriter.Flush()
 
 	err = csvWriter.Write([]string{"lon", "lat"})
+	if err != nil {
+		panic(err)
+	}
+
+	// Get the output channel of Spreaders
+	spreaders := spreader.MakeSpreaders(aggFc, qt, *propPtr)
 
 	// Iterate through the number of spreaders (from numFeatures) and write each to a CSV
-	for i := 0; i < numFeatures; i++ {
-		spreader := <-spreaderChan
+	for spreader := range spreaders {
 		for _, point := range spreader.Spread() {
 			lon := fmt.Sprintf("%.6f", point[0])
 			lat := fmt.Sprintf("%.6f", point[1])
 			csvWriter.Write([]string{lon, lat})
 		}
-	}
-
-	if err != nil {
-		panic(err)
 	}
 }

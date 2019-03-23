@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
@@ -19,6 +20,10 @@ type Spreader struct {
 }
 
 const WORKER_COUNT = 8
+
+func NewSpreader(feature *geojson.Feature, value float64, spreadFeatures []*geojson.Feature) *Spreader {
+	return &Spreader{feature, value, spreadFeatures}
+}
 
 // Return a slice of points distributed throughout spread features
 func (s *Spreader) Spread() []orb.Point {
@@ -84,40 +89,33 @@ func (s *Spreader) TotalSpreadValue() float64 {
 	return spreadValue
 }
 
-// Takes a feature collection of aggregate features, returns a slice of Spreader objects
-// that can distribute the aggregated values throughout the spread features
-func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) (int, <-chan Spreader) {
-	featureChan := make(chan *geojson.Feature)
-	spreaderChan := make(chan Spreader)
+func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) <-chan Spreader {
+	var wg sync.WaitGroup
+	features := make(chan *geojson.Feature)
+	spreaders := make(chan Spreader)
 
-	// Start up worker goroutines to process the data. 8 can be any number you want. You could
-	// use the value of runtime.GOMAXPROCS, but I would experiment to see what gives the best performance.
-	// You can use lots and lots of goroutines, but if you're CPU bound that won't make things faster and
-	// will add some overhead.
+	// Start up worker goroutines to process the data in goroutines so that they don't
+	// block trying to read from features
 	for i := 0; i < WORKER_COUNT; i++ {
-		updateSpreaderChan(featureChan, spreaderChan, qt, prop)
+		go func() {
+			for feat := range features {
+				spreaders <- *NewSpreader(feat, feat.Properties[prop].(float64), geom.IntersectingFeatures(qt, feat))
+				wg.Done()
+			}
+		}()
 	}
 
-	// Keep track of how many features we've seen so that we know how many Spreaders to expect later on
-	// You could just get this number using len(fc.Features), but this design will get you closer to
-	// streaming data through the program instead of loading it all into memory at once.
-	numFeatures := 0
-	for _, feat := range fc.Features {
-		go func(feat *geojson.Feature) {
-			featureChan <- feat
-		}(feat)
-		numFeatures++
-	}
-
-	return numFeatures, spreaderChan
-}
-
-// Starts a goroutine that pulls features off featureChan and pushes a resulting Spreader back onto
-// spreaderChan
-func updateSpreaderChan(featureChan <-chan *geojson.Feature, spreaderChan chan<- Spreader, qt *quadtree.Quadtree, prop string) {
+	// Start up a goroutine that will close the spreader chan when finished
 	go func() {
-		for feat := range featureChan {
-			spreaderChan <- Spreader{feat, feat.Properties[prop].(float64), geom.IntersectingFeatures(qt, feat)}
+		defer close(spreaders)
+		// Iterate through each feature, adding it to the WaitGroup and chan
+		for _, feat := range fc.Features {
+			wg.Add(1)
+			features <- feat
 		}
+		close(features)
+		wg.Wait()
 	}()
+
+	return spreaders
 }
