@@ -8,8 +8,14 @@ ARCH_LIST = darwin linux windows
 test:
 	go test ./pkg/...
 
-release: $(patsubst %, release/aggspread-%-amd64, $(ARCH_LIST))
+release: $(patsubst %, release/aggspread-%-amd64.tar.gz, $(ARCH_LIST))
 
+release/aggspread-%-amd64.tar.gz: release/aggspread-%-amd64
+	tar -czvf $@ $<
+
+.PRECIOUS: release/aggspread-%-amd64
 release/aggspread-%-amd64:
-	mkdir -p release
-	GOOS=$* GOARCH=amd64 go build $(LDFLAGS) -o $@ main.go
+	mkdir -p $@
+	cp README.md $@
+	cp LICENSE $@
+	GOOS=$* GOARCH=amd64 go build $(LDFLAGS) -o $@/aggspread main.go
