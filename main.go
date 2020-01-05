@@ -34,7 +34,7 @@ func main() {
 	spreadFcBound := geom.FeatureCollectionBound(spreadFc)
 	qt := quadtree.New(spreadFcBound)
 	for _, feat := range spreadFc.Features {
-		qt.Add(geom.CentroidPoint{feat})
+		qt.Add(geom.CentroidPoint{Feature: feat})
 	}
 
 	var writer io.Writer

@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// LoadGeoJSONFile accepts a filename and returns the output of parsing a FeatureCollection
 func LoadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 	var data []byte
 	var err error

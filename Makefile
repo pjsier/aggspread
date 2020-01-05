@@ -3,10 +3,16 @@ BUILD := $(shell git rev-parse --short HEAD)
 LDFLAGS := -ldflags "-X=main.Version=$(VERSION) -X=main.Build=$(BUILD)"
 ARCH_LIST = darwin linux windows
 
-.PHONY: test release
+.PHONY: test format lint release
 
 test:
 	go test ./pkg/...
+
+format:
+	test -z $$(gofmt -l .)
+
+lint:
+	golint -set_exit_status ./...
 
 release: $(patsubst %, release/aggspread-%-amd64.tar.gz, $(ARCH_LIST))
 

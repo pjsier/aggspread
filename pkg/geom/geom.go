@@ -9,16 +9,19 @@ import (
 	"github.com/paulmach/orb/quadtree"
 )
 
+// CentroidPoint is used to manage generating a quadtree while referencing a GeoJSON Feature
 // Based on example https://github.com/paulmach/orb/blob/master/geojson/example_pointer_test.go
 type CentroidPoint struct {
 	*geojson.Feature
 }
 
+// Point returns an orb.Point object from a CentroidPoint struct
 func (cp CentroidPoint) Point() orb.Point {
 	c, _ := planar.CentroidArea(cp.Feature.Geometry)
 	return c
 }
 
+// FeatureCollectionBound returns the bounds of a FeatureCollection
 func FeatureCollectionBound(fc *geojson.FeatureCollection) orb.Bound {
 	bound := fc.Features[0].Geometry.Bound()
 	for _, feat := range fc.Features[1:] {
@@ -27,6 +30,7 @@ func FeatureCollectionBound(fc *geojson.FeatureCollection) orb.Bound {
 	return bound
 }
 
+// IntersectingFeatures returns all features intersecting a given feature in a quadtree
 func IntersectingFeatures(qt *quadtree.Quadtree, feat *geojson.Feature) []*geojson.Feature {
 	var overlap []*geojson.Feature
 	for _, featPtr := range qt.InBound(nil, feat.Geometry.Bound()) {
@@ -38,6 +42,7 @@ func IntersectingFeatures(qt *quadtree.Quadtree, feat *geojson.Feature) []*geojs
 	return overlap
 }
 
+// GeometriesIntersect checks whether two geometries intersect each other
 func GeometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
 	var polyRange []orb.Polygon
 
@@ -66,6 +71,7 @@ func GeometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
 	return false
 }
 
+// RandomPointInGeom generates a random point within a given geometry
 func RandomPointInGeom(geom orb.Geometry) orb.Point {
 	for i := 0; i < 1000; i++ {
 		bounds := geom.Bound()

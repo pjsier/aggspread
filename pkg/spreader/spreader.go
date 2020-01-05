@@ -13,24 +13,22 @@ import (
 	"github.com/pjsier/aggspread/pkg/geom"
 )
 
+const workerCount = 8
+
+// Spreader manages spreading a Feature into SpreadFeatures based on the AggregateValue
 type Spreader struct {
 	Feature        *geojson.Feature
 	AggregateValue float64
 	SpreadFeatures []*geojson.Feature
 }
 
-const WORKER_COUNT = 8
-
-func NewSpreader(feature *geojson.Feature, value float64, spreadFeatures []*geojson.Feature) *Spreader {
-	return &Spreader{feature, value, spreadFeatures}
-}
-
-// Return a slice of points distributed throughout spread features
+// Spread returns a slice of points distributed throughout spread features
 func (s *Spreader) Spread() []orb.Point {
 	var spreadPoints []orb.Point
 	spreadTotal := s.TotalSpreadValue()
 	lenSpreadFeatures := len(s.SpreadFeatures)
 	totalNumPoints := int(math.Floor(s.AggregateValue))
+
 	// Sort features in descending order by area
 	sort.Slice(s.SpreadFeatures, func(i, j int) bool {
 		return planar.Area(s.SpreadFeatures[i].Geometry) > planar.Area(s.SpreadFeatures[j].Geometry)
@@ -59,8 +57,7 @@ func (s *Spreader) Spread() []orb.Point {
 			numPoints = int64(math.Ceil(magnitude))
 		}
 
-		var i int64
-		for ; i < numPoints; i++ {
+		for i := 0; i < int(numPoints); i++ {
 			if len(spreadPoints) >= totalNumPoints {
 				break
 			}
@@ -68,10 +65,11 @@ func (s *Spreader) Spread() []orb.Point {
 		}
 	}
 
-	// Randomly distribute remaining points throughout spread features, starting with largest
-	// TODO: Come up with a better method that doesn't sacrifice speed
-	pointsToAdd := math.Floor(s.AggregateValue - float64(len(spreadPoints)))
-	for i := 0; float64(i) < pointsToAdd; i++ {
+	// Randomly distribute remaining points throughout spread features
+	for {
+		if len(spreadPoints) >= int(math.Floor(s.AggregateValue)) {
+			break
+		}
 		index := int(math.Floor(rand.Float64() * float64(lenSpreadFeatures)))
 		spreadPoints = append(spreadPoints, geom.RandomPointInGeom(s.SpreadFeatures[index].Geometry))
 	}
@@ -79,8 +77,7 @@ func (s *Spreader) Spread() []orb.Point {
 	return spreadPoints
 }
 
-// Get the sum of all feature areas to know what to distribute
-// TODO: Allow spreading by prop
+// TotalSpreadValue returns the amount to use for spreading points inside a feature (currently area)
 func (s *Spreader) TotalSpreadValue() float64 {
 	var spreadValue float64
 	for _, feat := range s.SpreadFeatures {
@@ -89,6 +86,7 @@ func (s *Spreader) TotalSpreadValue() float64 {
 	return spreadValue
 }
 
+// MakeSpreaders returns a chan of Spreader structs to efficiently process all features
 func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) <-chan Spreader {
 	var wg sync.WaitGroup
 	features := make(chan *geojson.Feature)
@@ -96,10 +94,10 @@ func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop st
 
 	// Start up worker goroutines to process the data in goroutines so that they don't
 	// block trying to read from features
-	for i := 0; i < WORKER_COUNT; i++ {
+	for i := 0; i < workerCount; i++ {
 		go func() {
 			for feat := range features {
-				spreaders <- *NewSpreader(feat, feat.Properties[prop].(float64), geom.IntersectingFeatures(qt, feat))
+				spreaders <- Spreader{feat, feat.Properties[prop].(float64), geom.IntersectingFeatures(qt, feat)}
 				wg.Done()
 			}
 		}()
