@@ -4,6 +4,12 @@
 
 A CLI tool based on Conveyal's [`aggregate-disser`](https://github.com/conveyal/aggregate-disser/) for spreading aggregated GeoJSON feature data throughout points inside overlapping spread features. An example would be distributing population data from Census block groups into random points within contained residential parcels.
 
+## Installation
+
+If you have Go installed, you can run `go get github.com/pjsier/aggspread` to download the binary package and add it to your path.
+
+There are also [binaries available](https://github.com/pjsier/aggspread/releases) for MacOS, Windows and Linux.
+
 ## Usage
 
 ```bash
