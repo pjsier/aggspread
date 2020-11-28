@@ -1,8 +1,10 @@
-# aggspread
+# `aggspread`
 
-![Build status](https://github.com/pjsier/aggspread/workflows/CI/badge.svg)
+[![Build status](https://github.com/pjsier/aggspread/workflows/CI/badge.svg)](https://github.com/pjsier/aggspread/actions?query=workflow%3ACI)
 
 A CLI tool based on Conveyal's [`aggregate-disser`](https://github.com/conveyal/aggregate-disser/) for spreading aggregated GeoJSON feature data throughout points inside overlapping spread features. An example would be distributing population data from Census block groups into random points within contained residential parcels.
+
+![Map screenshots of aggregated and spread data](./img/example.jpg "Map screenshots of aggregated and spread data")
 
 ## Installation
 
@@ -15,13 +17,13 @@ There are also [binaries available](https://github.com/pjsier/aggspread/releases
 ```bash
 Usage of aggspread:
   -agg string
-        File including aggregated info or '-' to read from stdin
+        File including aggregated info or '-' to read from stdin (default "-")
   -output string
-        CSV filename to write to or '-' to write to stdout
+        Optional filename to write output or '-' to write to stdout (default "-")
   -prop string
-        Aggregated property
+        Aggregated property to spreads
   -spread string
-        File to spread property throughout
+        File to spread property throughout or '-' to read from stdin (default: value in 'agg')
 ```
 
 ## Example
@@ -31,5 +33,3 @@ Convert a feature collection of voting precincts with a property indicating the 
 ```bash
 aggspread -agg precincts.geojson -prop votes -spread parcels.geojson -output output.csv
 ```
-
-![Map screenshots of aggregated and spread data](./img/example.jpg "Map screenshots of aggregated and spread data")

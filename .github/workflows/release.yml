@@ -6,26 +6,26 @@ on:
 
 jobs:
   release:
-    name: Publish release
+    name: Create release
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
-      - uses: actions/setup-node@v1
+      - uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          node-version: "11.x"
-
-      - run: npm install -g conventional-changelog-cli
-
-      - run: conventional-changelog -p conventional -i CHANGELOG.md -s -r 2
-
-      - uses: ncipollo/release-action@v1
-        with:
-          bodyFile: CHANGELOG.md
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
 
   release-assets:
     name: Publish release assets for ${{ matrix.arch }}
+    needs: release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -41,17 +41,21 @@ jobs:
             os: macos-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.12
+          go-version: 1.14
 
       - run: make release/aggspread-${{ matrix.arch }}-amd64.tar.gz
 
-      - uses: svenstaro/upload-release-action@v1-release
+      - name: Upload assets
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: release/aggspread-${{ matrix.arch }}-amd64.tar.gz
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: release/aggspread-${{ matrix.arch }}-amd64.tar.gz
           asset_name: aggspread-${{ matrix.arch }}-amd64.tar.gz
-          tag: ${{ github.ref }}
+          asset_content_type: application/gzip
