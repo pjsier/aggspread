@@ -1,20 +1,50 @@
 package geom
 
 import (
+	"encoding/json"
 	"io/ioutil"
+	"log"
 	"os"
 
 	"github.com/paulmach/orb/geojson"
 	"github.com/pkg/errors"
 )
 
+// GeoJSONValue is an intermediate struct for unmarshalling one record at a time so that
+// we can load a FeatureCollection while ignoring invalid Features
+type FeatureCollectionValue struct {
+	Features []json.RawMessage `json:"features"`
+}
+
+// ParseFeatureCollection unmarshals features individually to avoid failing on invalid features
+func ParseFeatureCollection(data []byte) (*geojson.FeatureCollection, error) {
+	var featureCollection = geojson.NewFeatureCollection()
+	var featureVal = &FeatureCollectionValue{}
+
+	err := json.Unmarshal(data, featureVal)
+	if err != nil {
+		return featureCollection, err
+	}
+
+	for _, rawFeat := range featureVal.Features {
+		feat, err := geojson.UnmarshalFeature(rawFeat)
+		if err != nil {
+			log.Printf("Error occurred parsing feature, continuing: %s", err)
+			continue
+		}
+		featureCollection.Append(feat)
+	}
+
+	return featureCollection, nil
+}
+
 // LoadGeoJSONFile accepts a filename and returns the output of parsing a FeatureCollection
 func LoadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 	var data []byte
 	var err error
-	var features = &geojson.FeatureCollection{}
+
 	if filename == "" {
-		return features, errors.New("Filename must not be blank")
+		return nil, errors.New("Filename must not be blank")
 	}
 
 	if filename == "-" {
@@ -24,11 +54,8 @@ func LoadGeoJSONFile(filename string) (*geojson.FeatureCollection, error) {
 	}
 
 	if err != nil {
-		return features, err
+		return nil, err
 	}
-	features, err = geojson.UnmarshalFeatureCollection(data)
-	if err != nil {
-		return features, err
-	}
-	return features, nil
+
+	return ParseFeatureCollection(data)
 }

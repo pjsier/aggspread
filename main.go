@@ -5,36 +5,45 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
+	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/quadtree"
 	"github.com/pjsier/aggspread/pkg/geom"
 	"github.com/pjsier/aggspread/pkg/spreader"
 )
 
 func main() {
-	aggPtr := flag.String("agg", "", "File including aggregated info or '-' to read from stdin")
+	aggPtr := flag.String("agg", "-", "File including aggregated info or '-' to read from stdin. Defaults to stdin.")
 	propPtr := flag.String("prop", "", "Aggregated property")
-	spreadPtr := flag.String("spread", "", "File to spread property throughout")
-	outputPtr := flag.String("output", "", "CSV filename to write to or '-' to write to stdout")
+	spreadPtr := flag.String("spread", "", "File to spread property throughout or '-' to read from stdin. Defaults to value in 'agg'")
+	outputPtr := flag.String("output", "-", "Optional filename to write output. Defaults to stdout")
 
 	flag.Parse()
 
 	// Read GeoJSON files with aggregated properties and features to spread through
 	aggFc, err := geom.LoadGeoJSONFile(*aggPtr)
 	if err != nil {
-		panic(err)
+		log.Fatalf("An error occurred loading aggregate GeoJSON: %s", err)
 	}
-	spreadFc, err := geom.LoadGeoJSONFile(*spreadPtr)
-	if err != nil {
-		panic(err)
+
+	var spreadFc *geojson.FeatureCollection
+	if *spreadPtr != "" {
+		spreadFc, err = geom.LoadGeoJSONFile(*spreadPtr)
+		if err != nil {
+			log.Fatalf("An error occurred loading GeoJSON data to spread: %s", err)
+		}
+	} else {
+		// Spread points throughout the input geometry if spread input not supplied
+		spreadFc = aggFc
 	}
 
 	// Create a Quadtree to speed up geometry searches of spread features
 	spreadFcBound := geom.FeatureCollectionBound(spreadFc)
 	qt := quadtree.New(spreadFcBound)
 	for _, feat := range spreadFc.Features {
-		qt.Add(geom.CentroidPoint{Feature: feat})
+		_ = qt.Add(geom.CentroidPoint{Feature: feat})
 	}
 
 	var writer io.Writer
@@ -43,7 +52,7 @@ func main() {
 	} else {
 		writer, err = os.Create(*outputPtr)
 		if err != nil {
-			panic(err)
+			log.Fatalf("An error occurred creating an output file: %s", err)
 		}
 	}
 
@@ -52,7 +61,7 @@ func main() {
 
 	err = csvWriter.Write([]string{"lon", "lat"})
 	if err != nil {
-		panic(err)
+		log.Fatalf("An error occurred writing to csv: %s", err)
 	}
 
 	// Get the output channel of Spreaders
@@ -63,7 +72,7 @@ func main() {
 		for _, point := range spreader.Spread() {
 			lon := fmt.Sprintf("%.6f", point[0])
 			lat := fmt.Sprintf("%.6f", point[1])
-			csvWriter.Write([]string{lon, lat})
+			_ = csvWriter.Write([]string{lon, lat})
 		}
 	}
 }
