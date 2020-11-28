@@ -2,9 +2,9 @@
 
 [![Build status](https://github.com/pjsier/aggspread/workflows/CI/badge.svg)](https://github.com/pjsier/aggspread/actions?query=workflow%3ACI)
 
-A CLI tool based on Conveyal's [`aggregate-disser`](https://github.com/conveyal/aggregate-disser/) for spreading aggregated GeoJSON feature data throughout points inside overlapping spread features. An example would be distributing population data from Census block groups into random points within contained residential parcels.
+A CLI tool based on Conveyal's [`aggregate-disser`](https://github.com/conveyal/aggregate-disser/) for spreading aggregated GeoJSON feature data throughout points inside overlapping spread features. An example would be distributing precinct-level election results into points within contained residential parcels.
 
-![Map screenshots of aggregated and spread data](./img/example.jpg "Map screenshots of aggregated and spread data")
+![Screenshot of voting results spread into parcels](./img/screenshot.png "Screenshot of voting results spread into parcels")
 
 ## Installation
 
