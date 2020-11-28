@@ -15,10 +15,10 @@ import (
 )
 
 func main() {
-	aggPtr := flag.String("agg", "-", "File including aggregated info or '-' to read from stdin. Defaults to stdin.")
-	propPtr := flag.String("prop", "", "Aggregated property")
-	spreadPtr := flag.String("spread", "", "File to spread property throughout or '-' to read from stdin. Defaults to value in 'agg'")
-	outputPtr := flag.String("output", "-", "Optional filename to write output. Defaults to stdout")
+	aggPtr := flag.String("agg", "-", "File including aggregated info or '-' to read from stdin")
+	propPtr := flag.String("prop", "", "Aggregated property to spreads")
+	spreadPtr := flag.String("spread", "", "File to spread property throughout or '-' to read from stdin (default: value in 'agg')")
+	outputPtr := flag.String("output", "-", "Optional filename to write output or '-' to write to stdout")
 
 	flag.Parse()
 
