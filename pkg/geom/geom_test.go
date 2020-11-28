@@ -38,7 +38,7 @@ func TestIntersectingFeatures(t *testing.T) {
 	}
 	qt := quadtree.New(FeatureCollectionBound(fc))
 	for _, feat := range fc.Features {
-		qt.Add(CentroidPoint{feat})
+		_ = qt.Add(CentroidPoint{feat})
 	}
 
 	multiPoly := geojson.NewFeature(orb.MultiPolygon{
@@ -48,7 +48,7 @@ func TestIntersectingFeatures(t *testing.T) {
 	multiFc := geojson.NewFeatureCollection()
 	multiFc.Append(multiPoly)
 	multiQt := quadtree.New(FeatureCollectionBound(multiFc))
-	multiQt.Add(CentroidPoint{multiFc.Features[0]})
+	_ = multiQt.Add(CentroidPoint{multiFc.Features[0]})
 
 	polyIntersect := IntersectingFeatures(qt, multiFc.Features[0])
 	if len(polyIntersect) != 3 {

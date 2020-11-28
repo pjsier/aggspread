@@ -47,8 +47,7 @@ func (s *Spreader) Spread() []orb.Point {
 			break
 		}
 		var numPoints int64
-		value := planar.Area(spreadFeat.Geometry)
-		portion := value / spreadTotal
+		portion := geom.OverlapArea(s.Feature.Geometry, spreadFeat.Geometry) / spreadTotal
 		magnitude := portion * s.AggregateValue
 		remainder := magnitude - math.Floor(magnitude)
 
@@ -84,7 +83,7 @@ func (s *Spreader) Spread() []orb.Point {
 func (s *Spreader) TotalSpreadValue() float64 {
 	var spreadValue float64
 	for _, feat := range s.SpreadFeatures {
-		spreadValue += planar.Area(feat.Geometry)
+		spreadValue += geom.OverlapArea(s.Feature.Geometry, feat.Geometry)
 	}
 	return spreadValue
 }

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/clip"
 	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/planar"
 	"github.com/paulmach/orb/quadtree"
@@ -69,6 +70,11 @@ func GeometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
 		}
 	}
 	return false
+}
+
+// OverlapArea returns the area of a geometry that overlaps the Bound of another
+func OverlapArea(sourceGeom orb.Geometry, overlapGeom orb.Geometry) float64 {
+	return planar.Area(clip.Geometry(sourceGeom.Bound(), overlapGeom))
 }
 
 // RandomPointInGeom generates a random point within a given geometry
