@@ -12,7 +12,7 @@ format:
 	test -z $$(gofmt -l .)
 
 lint:
-	golint -set_exit_status ./...
+	golangci-lint run
 
 release: $(patsubst %, release/aggspread-%-amd64.tar.gz, $(ARCH_LIST))
 
