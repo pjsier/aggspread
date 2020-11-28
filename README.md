@@ -33,3 +33,7 @@ Convert a feature collection of voting precincts with a property indicating the 
 ```bash
 aggspread -agg precincts.geojson -prop votes -spread parcels.geojson -output output.csv
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
