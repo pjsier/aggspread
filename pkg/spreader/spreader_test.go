@@ -52,3 +52,16 @@ func TestTotalSpreadValue(t *testing.T) {
 		t.Errorf("Total area value should be 62.5, is %f", totalValue)
 	}
 }
+
+func TestNewSpreader(t *testing.T) {
+	feat := geojson.NewFeature(orb.Polygon{{{0, 0}, {15, 15}, {15, 0}, {0, 0}}})
+	feat.Properties["test"] = "1"
+	spreader, _ := NewSpreader(feat, []*geojson.Feature{}, "test")
+	if spreader.AggregateValue != 1.0 {
+		t.Errorf("Spread property '%f' was not parsed to float64", spreader.AggregateValue)
+	}
+	_, err := NewSpreader(feat, []*geojson.Feature{}, "fake")
+	if err == nil {
+		t.Errorf("Invalid properties should fail parsing")
+	}
+}
