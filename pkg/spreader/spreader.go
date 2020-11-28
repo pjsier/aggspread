@@ -1,9 +1,12 @@
 package spreader
 
 import (
+	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/paulmach/orb"
@@ -86,18 +89,58 @@ func (s *Spreader) TotalSpreadValue() float64 {
 	return spreadValue
 }
 
+func getFloat(val interface{}) (float64, error) {
+	switch i := val.(type) {
+	case float64:
+		return i, nil
+	case float32:
+		return float64(i), nil
+	case int64:
+		return float64(i), nil
+	case int32:
+		return float64(i), nil
+	case int:
+		return float64(i), nil
+	case uint64:
+		return float64(i), nil
+	case uint32:
+		return float64(i), nil
+	case uint:
+		return float64(i), nil
+	case string:
+		return strconv.ParseFloat(i, 64)
+	default:
+		return math.NaN(), fmt.Errorf("Cannot parse value of type '%s'", i)
+	}
+}
+
+// NewSpreader creates a Spreader, returning nil if the property value cannot be parsed
+func NewSpreader(feat *geojson.Feature, features []*geojson.Feature, prop string) (*Spreader, error) {
+	propVal, err := getFloat(feat.Properties[prop])
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse value '%s' as float64", feat.Properties[prop])
+	}
+	return &Spreader{feat, propVal, features}, nil
+}
+
 // MakeSpreaders returns a chan of Spreader structs to efficiently process all features
-func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) <-chan Spreader {
+func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) <-chan *Spreader {
 	var wg sync.WaitGroup
 	features := make(chan *geojson.Feature)
-	spreaders := make(chan Spreader)
+	spreaders := make(chan *Spreader)
 
 	// Start up worker goroutines to process the data in goroutines so that they don't
 	// block trying to read from features
 	for i := 0; i < workerCount; i++ {
 		go func() {
 			for feat := range features {
-				spreaders <- Spreader{feat, feat.Properties[prop].(float64), geom.IntersectingFeatures(qt, feat)}
+				spreader, err := NewSpreader(feat, geom.IntersectingFeatures(qt, feat), prop)
+				if err != nil {
+					log.Printf("Cannot spread feature due to error: %s", err)
+					wg.Done()
+					continue
+				}
+				spreaders <- spreader
 				wg.Done()
 			}
 		}()
