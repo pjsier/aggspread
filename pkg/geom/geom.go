@@ -74,7 +74,7 @@ func GeometriesIntersect(geom orb.Geometry, intersectGeom orb.Geometry) bool {
 
 // OverlapArea returns the area of a geometry that overlaps the Bound of another
 func OverlapArea(sourceGeom orb.Geometry, overlapGeom orb.Geometry) float64 {
-	return planar.Area(clip.Geometry(sourceGeom.Bound(), overlapGeom))
+	return planar.Area(clip.Geometry(sourceGeom.Bound(), orb.Clone(overlapGeom)))
 }
 
 // RandomPointInGeom generates a random point within a given geometry
