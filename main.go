@@ -39,11 +39,15 @@ func main() {
 		spreadFc = aggFc
 	}
 
-	// Create a Quadtree to speed up geometry searches of spread features
-	spreadFcBound := geom.FeatureCollectionBound(spreadFc)
-	qt := quadtree.New(spreadFcBound)
-	for _, feat := range spreadFc.Features {
-		_ = qt.Add(geom.CentroidPoint{Feature: feat})
+	var qt *quadtree.Quadtree
+	// Only create a quadtree if using a different set of spread features
+	if *spreadPtr == "" {
+		// Create a Quadtree to speed up geometry searches of spread features
+		spreadFcBound := geom.FeatureCollectionBound(spreadFc)
+		qt = quadtree.New(spreadFcBound)
+		for _, feat := range spreadFc.Features {
+			_ = qt.Add(geom.CentroidPoint{Feature: feat})
+		}
 	}
 
 	var writer io.Writer
@@ -65,7 +69,7 @@ func main() {
 	}
 
 	// Get the output channel of Spreaders
-	spreaders := spreader.MakeSpreaders(aggFc, qt, *propPtr)
+	spreaders := spreader.MakeSpreaders(aggFc, *propPtr, qt)
 
 	// Iterate through the number of spreaders (from numFeatures) and write each to a CSV
 	for spreader := range spreaders {

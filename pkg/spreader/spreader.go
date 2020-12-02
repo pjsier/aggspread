@@ -123,7 +123,7 @@ func NewSpreader(feat *geojson.Feature, features []*geojson.Feature, prop string
 }
 
 // MakeSpreaders returns a chan of Spreader structs to efficiently process all features
-func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop string) <-chan *Spreader {
+func MakeSpreaders(fc *geojson.FeatureCollection, prop string, qt *quadtree.Quadtree) <-chan *Spreader {
 	var wg sync.WaitGroup
 	features := make(chan *geojson.Feature)
 	spreaders := make(chan *Spreader)
@@ -133,7 +133,14 @@ func MakeSpreaders(fc *geojson.FeatureCollection, qt *quadtree.Quadtree, prop st
 	for i := 0; i < workerCount; i++ {
 		go func() {
 			for feat := range features {
-				spreader, err := NewSpreader(feat, geom.IntersectingFeatures(qt, feat), prop)
+				// Default to spreading over the input feature if a quadtree not supplied
+				var intersectingFeatures []*geojson.Feature
+				if qt == nil {
+					intersectingFeatures = []*geojson.Feature{feat}
+				} else {
+					intersectingFeatures = geom.IntersectingFeatures(qt, feat)
+				}
+				spreader, err := NewSpreader(feat, intersectingFeatures, prop)
 				if err != nil {
 					log.Printf("Cannot spread feature due to error: %s", err)
 					wg.Done()
