@@ -14,11 +14,9 @@ jobs:
 
       - run: make format
 
-      - uses: actions-contrib/golangci-lint@v1
-        env:
-          GOROOT: ""
+      - uses: golangci/golangci-lint-action@v2
         with:
-          args: "run"
+          version: v1.42.0
 
       - run: make test
 
