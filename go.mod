@@ -1,8 +1,8 @@
 module github.com/pjsier/aggspread
 
-go 1.14
+go 1.16
 
 require (
-	github.com/paulmach/orb v0.1.7
+	github.com/paulmach/orb v0.2.2
 	github.com/pkg/errors v0.9.1
 )
