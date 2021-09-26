@@ -28,7 +28,7 @@ func ParseFeatureCollection(data []byte) (*geojson.FeatureCollection, error) {
 
 	for _, rawFeat := range featureVal.Features {
 		feat, err := geojson.UnmarshalFeature(rawFeat)
-		if err != nil {
+		if err != nil || feat.Geometry == nil {
 			log.Printf("Error occurred parsing feature, continuing: %s", err)
 			continue
 		}
