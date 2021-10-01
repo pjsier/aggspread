@@ -12,6 +12,7 @@ import (
 	"github.com/paulmach/orb/quadtree"
 	"github.com/pjsier/aggspread/pkg/geom"
 	"github.com/pjsier/aggspread/pkg/spreader"
+	"github.com/schollz/progressbar/v3"
 )
 
 func main() {
@@ -68,6 +69,11 @@ func main() {
 		log.Fatalf("An error occurred writing to csv: %s", err)
 	}
 
+	bar := progressbar.NewOptions(len(aggFc.Features), progressbar.OptionShowCount(), progressbar.OptionSetPredictTime(true), progressbar.OptionSetVisibility(*outputPtr != "-"))
+	defer func(bar *progressbar.ProgressBar) {
+		_ = bar.Finish()
+	}(bar)
+
 	// Get the output channel of Spreaders
 	spreaders := spreader.MakeSpreaders(aggFc, *propPtr, qt)
 
@@ -78,5 +84,6 @@ func main() {
 			lat := fmt.Sprintf("%.6f", point[1])
 			_ = csvWriter.Write([]string{lon, lat})
 		}
+		_ = bar.Add(1)
 	}
 }
